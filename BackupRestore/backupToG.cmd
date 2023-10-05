@@ -1,0 +1,2 @@
+sqlcmd -S . -E -Q "BACKUP DATABASE [kr1] TO  DISK = N'G:\kr1.bak' WITH NOFORMAT, INIT,  NAME = N'kr1-full', SKIP, NOREWIND, NOUNLOAD, COMPRESSION,  STATS = 10"
+pause
