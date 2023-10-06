@@ -1,0 +1,7 @@
+CREATE   PROCEDURE [dbo].[k_services] AS
+
+SET NOCOUNT ON
+ 
+SELECT * FROM dbo.View_SERVICES ORDER BY name
+go
+

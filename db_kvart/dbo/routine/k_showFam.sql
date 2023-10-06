@@ -1,0 +1,9 @@
+CREATE   PROCEDURE [dbo].[k_showFam] 
+ AS
+SET NOCOUNT ON
+ 
+SELECT * 
+FROM FAM_RELATIONS 
+ORDER BY id_no, name
+go
+
