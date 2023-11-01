@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SqlDataSourceStorage">
+    <option name="dataSources">
+      <list>
+        <State>
+          <option name="id" value="30c6b5b3-1856-47cd-a0c9-ad396212b8c2" />
+          <option name="name" value="kr1@localhost (DDL)" />
+          <option name="dbmsName" value="MSSQL" />
+          <option name="urls">
+            <array>
+              <option value="file://$PROJECT_DIR$/db_kvart" />
+            </array>
+          </option>
+          <option name="outLayout" value="File per object by schema.groovy" />
+          <option name="autoSync" value="false" />
+        </State>
+      </list>
+    </option>
+  </component>
+</project>

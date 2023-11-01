@@ -105,6 +105,7 @@ AS
 			UPDATE dbo.People 
 			SET Del = 1
 			  , DateDel = @DateDel1
+			  , date_del_fact = current_timestamp
 			  , DateDeath = CAST(@DateDeath1 AS DATE)
 			  , Reason_extract = @Reason
 			  , DateEnd =

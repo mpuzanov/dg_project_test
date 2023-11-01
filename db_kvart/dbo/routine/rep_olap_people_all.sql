@@ -3,7 +3,7 @@
 -- Create date: 15.05.2020
 -- Description:	информация по гражданам без привязки к периоду
 -- =============================================
-CREATE             PROCEDURE [dbo].[rep_olap_people_all]
+CREATE               PROCEDURE [dbo].[rep_olap_people_all]
 (
 	  @build INT = NULL
 	, @tip_id SMALLINT = NULL
@@ -89,6 +89,17 @@ BEGIN
 			 , I.ISSUED AS 'Док_дата_выдачи'
 			 , I.DOCORG AS 'Док_кем_выдан'
 			 , I.kod_pvs AS 'Док_код_пвс'
+			 , CASE
+				   WHEN COALESCE(p.Dola_priv1, 0) > 0 AND
+					   COALESCE(p.Dola_priv2, 0) > 0 THEN LTRIM(STR(p.Dola_priv1)) + '/' + LTRIM(STR(p.Dola_priv2))
+				   WHEN COALESCE(p.Dola_priv1, 0) > 0 AND
+					   COALESCE(p.Dola_priv2, 0) = 0 THEN LTRIM(STR(p.Dola_priv1))
+				   WHEN COALESCE(p.Dola_priv1, 0) = 0 AND
+					   COALESCE(p.Dola_priv2, 0) > 0 THEN '1/' + LTRIM(STR(p.Dola_priv2))
+				   ELSE ''
+			   END AS 'Доля собственности'
+			 , p.DateBeginPrivat AS 'Дата начала права собств.'
+			 , p.DateEndPrivat AS 'Дата окон. права собств.'
 			 , CONCAT(ba.street_name, ba.nom_dom_sort) AS sort_dom
 			 , ba.nom_dom_sort
 			 , o.nom_kvr_sort

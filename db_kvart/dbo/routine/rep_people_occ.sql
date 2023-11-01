@@ -11,7 +11,7 @@ CREATE   PROCEDURE [dbo].[rep_people_occ]
 
 Выдаем список зарегистрированных граждан в лицевом счёте 
 
-rep_people_occ 300941, 0,'20230601','20230630', 6985, 60
+rep_people_occ 285731, 0,'20231001','20231030', 8562, 204
 rep_people_occ 680003617,0,'20151101','20160122',1036,28
 rep_people_occ NULL,1,'20151101','20160122',1029
 */
@@ -72,27 +72,34 @@ AS
 				END AS reason
 			   ,vb.nom_dom_sort
 			   ,O.nom_kvr_sort
+			   ,p.date_create
+			   ,p.DateEdit
 			   ,CASE
 					WHEN 
 						COALESCE(p.DateReg, @DateRegNull) < @start_date 
 							AND (p.DateDel IS NULL OR p.DateDel >= @start_date) 
 						THEN 1
+					WHEN p.date_create < @start_date THEN 1
 					ELSE 0
 				END AS total_people1
+
 			   ,CASE
 					WHEN DateReg BETWEEN @start_date AND @end_date THEN 1
+					WHEN p.date_create BETWEEN @start_date AND @end_date THEN 1
 					ELSE 0
 				END AS is_reg
+
 			   ,CASE
 					WHEN DateDel BETWEEN @start_date AND @end_date THEN 1
+					WHEN DateDel IS NOT NULL AND p.DateEdit BETWEEN @start_date AND @end_date THEN 1
 					ELSE 0
 				END AS is_del
+
 			   ,CASE
-					WHEN COALESCE(p.DateReg, @DateRegNull) < @end_date AND
-					(p.DateDel IS NULL OR
-					p.DateDel > @end_date) THEN 1
+					WHEN COALESCE(p.DateReg, @DateRegNull) < @end_date AND (p.DateDel IS NULL OR p.DateDel > @end_date) THEN 1
 					ELSE 0
 				END AS total_people2
+
 			FROM dbo.People AS p 
 			JOIN dbo.VOcc AS O 
 				ON O.occ = p.occ
@@ -112,9 +119,13 @@ AS
 	WHERE 
 		(@only_izm = 1
 		AND (
-			(DateDel BETWEEN @start_date AND @end_date)
+			(
+				(DateDel BETWEEN @start_date AND @end_date) OR (DateDel is not null and DateEdit BETWEEN @start_date AND @end_date)
+			)
 			OR 
 			(DateReg BETWEEN @start_date AND @end_date)
+			OR
+			(date_create BETWEEN @start_date AND @end_date)
 			)
 		)
 	OR (@only_izm = 0

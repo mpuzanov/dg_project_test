@@ -3,7 +3,7 @@
 -- Create date: 28.02.2012
 -- Description:	информация по гражданам
 -- =============================================
-CREATE             PROCEDURE [dbo].[rep_olap_people]
+CREATE               PROCEDURE [dbo].[rep_olap_people]
 (
 	  @build INT = NULL
 	, @fin_id1 SMALLINT = NULL
@@ -114,7 +114,8 @@ BEGIN
 					   COALESCE(p2.Dola_priv2, 0) > 0 THEN '1/' + LTRIM(STR(p2.Dola_priv2))
 				   ELSE ''
 			   END AS 'Доля собственности'
-
+			 , p2.DateBeginPrivat AS 'Дата начала права собств.'
+			 , p2.DateEndPrivat AS 'Дата окон. права собств.'
 			 , IT.name AS 'Документ'
 			 , I.DOCTYPE_ID AS 'Док_код'
 			 , I.DOC_NO AS 'Док_номер'

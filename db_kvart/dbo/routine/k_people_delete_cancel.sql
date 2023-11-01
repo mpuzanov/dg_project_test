@@ -66,6 +66,7 @@ AS
 		SET Del = 0
 		  , DateDel = NULL
 		  , Reason_extract = NULL
+		  , date_del_fact = NULL
 		WHERE id = @owner_id1
 	
 	COMMIT TRAN

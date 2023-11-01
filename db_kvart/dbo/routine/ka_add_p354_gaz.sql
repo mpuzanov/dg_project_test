@@ -134,6 +134,7 @@ SELECT @addyes AS '@addyes'
 		vp.fin_id=@fin_id1
 		and vp.build_id=@bldn_id1
 		and vp.service_id='отоп'
+		and (vp.source_id % 1000) <> 0
 
 	--расчитаем объём Гкал на ГВС
 	SELECT @volume_gkal_gvs = @norma_gaz_gvs * @volume_gvs
@@ -162,32 +163,42 @@ SELECT @addyes AS '@addyes'
 
 
 	SELECT
-		occ, coalesce(kol,0) as kol
+		vp.occ, vo.nom_kvr, coalesce(vp.kol,0) as kol
 		,concat(
-			ltrim(str(@koef_g,9,6)),'*',str(@norma_gaz_gvs,9,6),'*',dbo.nstr(kol)
+			ltrim(str(@koef_g,9,6)),'*',ltrim(str(@norma_gaz_gvs,9,6)),'*',dbo.nstr(kol)
 		) as comments
 		,cast(@koef_g * @norma_gaz_gvs * kol AS DECIMAL(12,6)) as kol_itog
 		,@tarif as tarif
-		,cast(@koef_g * @norma_gaz_gvs * kol * @tarif AS DECIMAL(9,2)) as sum_value
+		,cast(@koef_g * @norma_gaz_gvs * kol * @tarif AS DECIMAL(9,2)) as sum_value		
+		, vo.nom_kvr_sort
+		, coalesce(vp.koef_day,1) as koef_day
 	INTO #t_gaz
 	FROM dbo.View_paym as vp
+		JOIN dbo.view_occ_all_lite vo ON
+			vo.occ=vp.Occ
+			and vo.fin_id=vp.fin_id
 	WHERE 
 		vp.fin_id=@fin_id1
 		and vp.build_id=@bldn_id1
 		and vp.service_id='гвод'
+		and (vp.source_id % 1000) <> 0	
 
 	if @debug=1
-		SELECT * from #t_gaz
+		SELECT '#t_gaz' as t,* from #t_gaz ORDER BY nom_kvr_sort
 
 	;WITH cte_otop AS
 	(
 	SELECT
 		vp.occ
 		, CASE 
-			WHEN vp.metod=3 THEN coalesce(kol,0)+coalesce(kol_added,0)
+			WHEN vp.metod=3 THEN coalesce(vp.kol,0)+coalesce(vp.kol_added,0)
+			WHEN coalesce(vp.metod,1) IN (1,2,9) THEN coalesce(vp.kol,0)+coalesce(vp.kol_added,0)  -- 22.10.23  по норме и среднему
 			ELSE 0
 		  END as kol
 		, vo.total_sq
+		, vo.nom_kvr
+		, vo.nom_kvr_sort
+		, coalesce(vp.koef_day,1) as koef_day
 	FROM dbo.View_paym as vp
 		JOIN dbo.view_occ_all_lite vo ON
 			vo.occ=vp.Occ
@@ -196,21 +207,24 @@ SELECT @addyes AS '@addyes'
 		vp.fin_id=@fin_id1
 		and vp.build_id=@bldn_id1
 		and vp.service_id='отоп'
+		and (vp.source_id % 1000) <> 0		
 	)
 	SELECT
-		occ, kol
+		occ, nom_kvr, kol
 		,concat(
-		ltrim(str(@koef_g,9,6)),'*(',dbo.nstr(kol),'+(',ltrim(str(@volume_gkal_otop,9,4)),'-',ltrim(str(@volume_otop_odn,9,4)),')*',
-		dbo.nstr(total_sq),'/',dbo.nstr(@build_total_sq),')'
+			ltrim(str(@koef_g,9,6)),'*(',dbo.nstr(kol),'+(',ltrim(str(@volume_gkal_otop,9,4)),'-',ltrim(str(@volume_otop_odn,9,4)),')*',
+			dbo.nstr(cast(total_sq*koef_day AS DECIMAL(9,2))),'/',dbo.nstr(@build_total_sq),')'
 		) as comments
-		,cast(@koef_g * (kol + ((@volume_gkal_otop - @volume_otop_odn) * total_sq / @build_total_sq)) AS DECIMAL(12,6)) as kol_itog
+		,cast(@koef_g * (kol + ((@volume_gkal_otop - @volume_otop_odn) * (total_sq*koef_day) / @build_total_sq)) AS DECIMAL(12,6)) as kol_itog
 		,@tarif as tarif
-		,cast(@koef_g * (kol + ((@volume_gkal_otop - @volume_otop_odn) * total_sq / @build_total_sq)) * @tarif AS DECIMAL(9,2)) as sum_value		
+		,cast(@koef_g * (kol + ((@volume_gkal_otop - @volume_otop_odn) * (total_sq*koef_day) / @build_total_sq)) * @tarif AS DECIMAL(9,2)) as sum_value
+		,nom_kvr_sort
+		,koef_day
 	INTO #t_otop
 	FROM cte_otop
 
 	if @debug=1
-		SELECT * from #t_otop
+		SELECT '#t_otop' as t, * from #t_otop ORDER BY nom_kvr_sort
 
 	if @fin_id1=@fin_current
 	BEGIN
@@ -234,7 +248,8 @@ SELECT @addyes AS '@addyes'
 		   , value
 		   , comments
 		   , unit_id
-		   , procedura)
+		   , procedura
+		   , koef_day)
 		SELECT @fin_current
 			 , t.occ
 			 , @service_id_gaz
@@ -244,6 +259,7 @@ SELECT @addyes AS '@addyes'
 			 , t.comments
 			 , coalesce(@unit_id,'') AS unit_id
 			 , OBJECT_NAME(@@PROCID) AS procedura
+			 , t.koef_day
 		FROM #t_gaz AS t
 		SELECT @addyes = @@rowcount;
 
@@ -264,7 +280,8 @@ SELECT @addyes AS '@addyes'
 		   , value
 		   , comments
 		   , unit_id
-		   , procedura)
+		   , procedura
+		   , koef_day)
 		SELECT @fin_current
 			 , t.occ
 			 , @service_id_otop
@@ -274,6 +291,7 @@ SELECT @addyes AS '@addyes'
 			 , t.comments
 			 , coalesce(@unit_id,'') AS unit_id
 			 , OBJECT_NAME(@@PROCID) AS procedura
+			 , t.koef_day
 		FROM #t_otop AS t
 
 	COMMIT TRAN;

@@ -3,7 +3,7 @@
 -- Create date: <Create Date,,>
 -- Description:	<Description,,>
 -- =============================================
-CREATE               PROCEDURE [dbo].[adm_del_info_base_build]
+CREATE                 PROCEDURE [dbo].[adm_del_info_base_build]
 	@str1			VARCHAR(100) -- строка с кодами типов фонда через ","
 	,@is_paym		BIT	= 0	-- Удаляем начисления
 	,@is_paying		BIT	= 0	-- Удаляем платежи
@@ -579,6 +579,72 @@ BEGIN
 	CLOSE cur
 	DEALLOCATE cur
 	RAISERROR ('Обработка выполнена', 10, 1) WITH NOWAIT;
+END
+go
+
+el, 0, 1, @RowsDeleted) WITH NOWAIT;
+
+			RAISERROR ('%i - ROOMS', 0, 1, @build_id) WITH NOWAIT;
+			DELETE r
+				FROM dbo.ROOMS r 
+				JOIN dbo.Flats f 
+            		ON r.flat_id = f.id          
+			WHERE f.bldn_id = @build_id
+			AND (@fin_id1=0)
+			
+			SET @RowsDeleted = @@rowcount
+			RAISERROR (@msg_del, 0, 1, 1, @RowsDeleted) WITH NOWAIT;
+
+			RAISERROR ('%i - FLATS', 0, 1, @build_id) WITH NOWAIT;
+			DELETE f
+				FROM dbo.FLATS f
+			WHERE f.bldn_id = @build_id
+			AND (@fin_id1=0)
+			
+			SELECT @RowsDeleted = @@rowcount
+			RAISERROR (@msg_del, 0, 1, @RowsDeleted) WITH NOWAIT;
+
+			RAISERROR ('%i - Suppliers_build_history', 0, 1, @build_id) WITH NOWAIT;
+			DELETE t
+				FROM dbo.Suppliers_build_history t
+			WHERE t.build_id = @build_id
+			AND (@fin_id1=0 or t.fin_id=@fin_id1)
+			
+			SELECT @RowsDeleted = @@rowcount
+			RAISERROR (@msg_del, 0, 1, @RowsDeleted) WITH NOWAIT;
+			
+			RAISERROR ('%i - Suppliers_build', 0, 1, @build_id) WITH NOWAIT;
+			DELETE t
+				FROM dbo.Suppliers_build t
+			WHERE t.build_id = @build_id
+			AND (@fin_id1=0)
+			
+			SELECT @RowsDeleted = @@rowcount
+			RAISERROR (@msg_del, 0, 1, @RowsDeleted) WITH NOWAIT;
+
+			RAISERROR ('%i - BUILDINGS', 0, 1, @build_id) WITH NOWAIT;
+			BEGIN TRANSACTION
+			DELETE t
+				FROM dbo.BUILDINGS AS t
+			WHERE t.id = @build_id
+			AND (@fin_id1=0)
+			
+			SELECT @RowsDeleted = @@rowcount
+			COMMIT TRANSACTION
+			CHECKPOINT
+			RAISERROR (@msg_del, 0, 1, @RowsDeleted) WITH NOWAIT;
+
+		END
+		
+		CHECKPOINT;
+
+		FETCH NEXT FROM cur INTO @build_id
+
+	END
+
+	CLOSE cur
+	DEALLOCATE cur
+	RAISERROR (N'Обработка выполнена', 10, 1) WITH NOWAIT;
 END
 go
 

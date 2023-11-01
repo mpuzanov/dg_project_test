@@ -159,6 +159,7 @@ AS
                  ,       o.id_els_gis
                  ,       CASE
                              WHEN b.build_type = 4 THEN b.kod_fias -- жилой дом (без № квартиры)
+							 WHEN coalesce(b.kod_fias,'')='' THEN ''
                              ELSE concat(b.kod_fias , ',' , o.NOM_KVR)
                              END  AS FIAS
             FROM dbo.View_occ_all_lite AS o 
@@ -241,6 +242,7 @@ AS
                  , o.id_els_gis
                  , CASE
                        WHEN b.build_type = 4 THEN b.kod_fias -- жилой дом (без № квартиры)
+					   WHEN coalesce(b.kod_fias,'')='' THEN ''
                        ELSE concat(b.kod_fias , ',' , o.NOM_KVR)
                 END                                        AS FIAS
                  , dbo.Fun_GetPosStringSplit(ot.commission_bank_code, ',', CASE

@@ -190,7 +190,7 @@ BEGIN
 
 	IF @fin_id1 = @fin_current
 	BEGIN
-		IF @debug=1 RAISERROR ('удаляем общедомовые по дому', 10, 1) WITH NOWAIT;
+		IF @debug=1 RAISERROR ('удаляем общедомовые по дому', 0, 1) WITH NOWAIT;
 
 		DELETE pcb
 		FROM dbo.Paym_occ_build AS pcb 
@@ -220,7 +220,7 @@ BEGIN
 	IF (@fin_current = @fin_id1)
 		AND @doc_no1 <> '99999'
 	BEGIN
-		IF @debug=1 RAISERROR ('делаем расчёт по дому', 10, 1) WITH NOWAIT 
+		IF @debug=1 RAISERROR ('делаем расчёт по дому', 0, 1) WITH NOWAIT 
 
 		DECLARE curs CURSOR LOCAL FOR
 			SELECT voa.occ
@@ -498,7 +498,7 @@ BEGIN
 			AND t.sup_id = vp.sup_id;
 
 	if @debug=1
-		SELECT 'vp',t.*, vp.kol
+		SELECT 'vp @serv_dom',t.*, vp.kol
 		FROM @t AS t
 			JOIN dbo.View_paym vp ON 
 				t.occ = vp.occ
@@ -613,11 +613,11 @@ BEGIN
 	--		@t
 
 	IF @debug = 1
-		SELECT *
+		SELECT '@t', *
 		FROM @t
 		ORDER BY dbo.Fun_SortDom(nom_kvr);
 
-	--IF @debug = 1 SELECT COALESCE(SUM(kol), 0) AS kol FROM @t;
+	--IF @debug=1 SELECT COALESCE(SUM(kol), 0) AS kol FROM @t;
 	--IF @debug=1 SELECT coalesce(SUM(kol),0) FROM @t WHERE is_counter=0 AND metod is null
 	--IF @debug=1 SELECT coalesce(SUM(kol),0) FROM @t WHERE is_counter=0 AND metod=3
 	--IF @debug=1 SELECT coalesce(SUM(kol),0) FROM @t WHERE is_counter=1 or metod=3
@@ -668,6 +668,8 @@ BEGIN
 
 	IF @debug = 1
 		SELECT COALESCE(SUM(kol_itog), 0) AS kol_itog
+			 , @Vnn as Vnn
+			 , @Vnr as Vnr
 			 , @odn_big_norma AS odn_big_norma
 			 , @is_not_allocate_economy AS is_not_allocate_economy
 			 , @is_ValueBuildMinus AS is_ValueBuildMinus
@@ -769,17 +771,18 @@ BEGIN
 			IF @debug = 1 PRINT 'отоп 3_1'
 
 			-- закоментировал 27.03.2023 ========================
-			UPDATE t SET kol_itog = COALESCE(value_add_kol,0), kol = 0  -- оставляем только разовые 
+			UPDATE t SET kol_itog = COALESCE(value_add_kol,0) + kol  -- оставляем только разовые 
+				--, kol = 0  -- 31/10/23
 			FROM @t AS t
-			WHERE (is_counter =0 AND metod IS NULL)
-			AND (mode_id%1000<>0)
+			WHERE (mode_id%1000<>0)
+			--AND (is_counter=0 AND metod IS NULL)
 
-			SELECT @Vnn=COALESCE(SUM(kol_itog), 0)
-			FROM @t
-			WHERE (is_counter = 0 AND metod IS NULL)
-			AND (mode_id%1000<>0)
+			--SELECT @Vnn=COALESCE(SUM(kol_itog), 0)
+			--FROM @t
+			--WHERE (mode_id%1000<>0)
+			--AND (is_counter = 0 AND metod IS NULL)
 			--======================================================
-			--SELECT @Vnn=COALESCE(SUM(kol_itog), 0) FROM @t WHERE (mode_id%1000<>0)  -- добавил 27.03.23
+			SELECT @Vnn=COALESCE(SUM(kol_itog), 0) FROM @t WHERE (mode_id%1000<>0)  -- добавил 27.03.23
 		END
 	END	
 
@@ -804,6 +807,7 @@ BEGIN
 	DECLARE @t_serv_boiler TABLE (
 			service_id VARCHAR(10)
 	);
+	
 	IF @is_boiler = 1 AND @service_id1 in (N'хвс2', N'хвод', N'гвс2', N'гвод')
 	BEGIN
 		IF @service_id1 IN (N'хвс2', N'хвод')
@@ -874,7 +878,7 @@ BEGIN
 			PRINT N'В доме есть Бойлер. По услугам: ' + @services_boiler + N' Объём: ' + STR(@Vnr_serv2, 9, 2);
 		END
 	END
-	ELSE	
+	ELSE
 	IF @is_boiler = 1 AND @service_id1 in ('отоп')
 	BEGIN
 		INSERT INTO @t_serv_boiler(service_id)	VALUES (N'тепл'),(N'одтж')
@@ -911,10 +915,10 @@ BEGIN
 			PRINT '@value_add_kol: ' + STR(@value_add_kol, 10, 4)			
 		END
 		SELECT @Vnr_serv2 = @Vnr_serv2 + @value_add_kol_boiler
+		IF @debug = 1 PRINT '@Vnr_serv2: ' + STR(@Vnr_serv2, 10, 4)
 	END
-	ELSE
+	--ELSE
 	-- бойлер **************************************************************************
-
 	--SELECT @Vob = @value_source1 - (@volume_arenda + @Vnn + @Vnr + @value_add_kol)
 	IF COALESCE(@volume_odn, 0) <> 0
 	BEGIN
@@ -925,8 +929,10 @@ BEGIN
 		SELECT @Vob = @value_start + @value_source1 - @volume_arenda - @volume_gvs - @Vnn - @Vnr - @Vnr_serv2
 
 		SELECT @str_koef = dbo.FSTR(@value_source1,9,2)+'-'+dbo.FSTR(@volume_arenda,9,2) + 
-		'-'+dbo.FSTR(@volume_gvs,9,2)+'-'+dbo.FSTR(@Vnn,9,2)+'-'+dbo.FSTR(@Vnr,9,2)  -- @Vnr_serv2 вычитаем ниже
+		'-'+dbo.FSTR(@volume_gvs,9,2)+'-'+dbo.FSTR(@Vnn,9,2)+'-'+dbo.FSTR(@Vnr,9,2)  -- @Vnr_serv2 вычитаем ниже				
 	END
+	if @debug=1 SELECT @Vob as Vob, @str_koef as str_koef, @volume_odn as volume_odn
+
 	IF @is_boiler = 1 AND @service_id1 in ('тепл')
 	BEGIN  
 		if @debug=1 PRINT 'Вычисление строки формулы по услуге Теплоэнергия на ГВС (летний период когда отопление не начисляем)'
@@ -995,6 +1001,8 @@ BEGIN
 			SELECT @str_formula = N'Ф11_1'
 				 , @str_koef = '(' + @str_koef + '-' + dbo.FSTR(@Vnr_serv2, 9, 2) + ')'  -- в @Vnr_serv2 сидит теплоэнергия
 	END
+
+	if @debug=1 SELECT @Vob as Vob, @str_koef as str_koef
 
 	if @Vob<0 -- AND @soi_is_transfer_economy=1
 	BEGIN
@@ -1246,7 +1254,7 @@ BEGIN
 					  , comments = CASE 
 					  WHEN @str_formula=N'Ф3_1' 
 						THEN @str_formula + ': ('+ @str_koef+ ')*('+ dbo.FSTR(total_sq, 9, 2)+ CASE
-     WHEN t.koef_day < 1
+																									   WHEN t.koef_day < 1
                                                                                                        THEN '*' + dbo.FSTR(t.koef_day, 9, 4)
                                                                                                    ELSE ''
                           END + ')/('+ dbo.FSTR(@total_sq, 9, 2)+ '+'+ dbo.FSTR(@S_arenda, 9, 2)+ ')+'+ dbo.FSTR(kol, 9, 4)
@@ -1480,9 +1488,11 @@ BEGIN
 	SELECT @addyes = @@rowcount;
 
 	COMMIT TRAN;
+	--PRINT '@addyes='+str(@addyes)
 
 LABEL_SET_ZERO:
-	IF (@service_id1 <> @serv_dom) OR (@set_soi_zero=1) AND (@serv_dom<>'')
+	IF (@service_id1 <> @serv_dom AND @serv_dom<>'') 
+		OR (@set_soi_zero=1) AND (@serv_dom<>'')
 	BEGIN
 		INSERT INTO dbo.Paym_occ_build
 			(fin_id
@@ -1522,6 +1532,8 @@ LABEL_SET_ZERO:
 			AND @serv_dom<>''
 		SELECT @addyes = @@rowcount;
 	END
+
+	--PRINT '@addyes='+str(@addyes)+' @service_id1='+@service_id1+' @serv_dom='+@serv_dom
 
 	IF @debug = 1
 		PRINT N'сохраняем итоговые данные по дому , использованные в расчёте'
@@ -1632,7 +1644,7 @@ LABEL_SET_ZERO:
 	END;
 
 	IF @debug = 1
-		RAISERROR (N'Добавляем показание по счётчику', 10, 1) WITH NOWAIT;
+		RAISERROR (N'Добавляем показание по счётчику', 0, 1) WITH NOWAIT;
 	DECLARE @t_counter TABLE (
 		  id INT
 		, counter_id INT
@@ -1669,7 +1681,7 @@ LABEL_SET_ZERO:
 	IF @Sum_Actual_value = 0
 	BEGIN
 		IF @debug = 1
-			RAISERROR (N'заполняем данные по ОПУ', 10, 1) WITH NOWAIT;
+			RAISERROR (N'заполняем данные по ОПУ', 0, 1) WITH NOWAIT;
 
 		SELECT @inspector_date1 = dbo.Fun_GetOnlyDate(end_date)
 		FROM dbo.Global_values AS GV
@@ -1687,7 +1699,7 @@ LABEL_SET_ZERO:
 	END;
 
 	IF @debug = 1
-		RAISERROR (N'заполняем данные по нежилым помещениям дома', 10, 1) WITH NOWAIT;
+		RAISERROR (N'заполняем данные по нежилым помещениям дома', 0, 1) WITH NOWAIT;
 	MERGE dbo.Build_arenda AS ba USING (
 		SELECT @bldn_id1 AS bldn_id1
 			 , @fin_current AS fin_current
@@ -1728,7 +1740,7 @@ LABEL_END:
 	IF @doc_no1 NOT IN ('99999','88888')
 	BEGIN
 		IF @debug = 1
-			RAISERROR (N'делаем расчёт по дому', 10, 1) WITH NOWAIT;
+			RAISERROR (N'делаем расчёт по дому', 0, 1) WITH NOWAIT;
 		EXEC dbo.k_raschet_build @build_id = @bldn_id1;
 	END
 	ELSE
@@ -1747,7 +1759,6 @@ LABEL_END:
 		WHERE pcb.fin_id = @fin_id1
 		AND pcb.tarif > 0
 	END
-
 END
 go
 

@@ -2,12 +2,14 @@ CREATE   PROCEDURE [dbo].[rep_occup_types]
 (
 	@tip_id		SMALLINT	= NULL
 	,@town_id	INT			= NULL
+	,@is_worker BIT			= 0  -- показывать только действующие типы фонда (raschet_no=0)
 )
 AS
 /*
 exec rep_occup_types
 exec rep_occup_types @tip_id=4
 exec rep_occup_types @town_id=1
+exec rep_occup_types @is_worker=1
 */
 SET NOCOUNT ON
 
@@ -41,7 +43,7 @@ CROSS APPLY (
 ) as t_build
 WHERE 
 	(@tip_id IS NULL OR t.id = @tip_id)
-	AND t.raschet_no = CAST(0 AS BIT)
+	AND (coalesce(@is_worker,0)=0 OR t.raschet_no = 0)
 )
 SELECT * FROM cte WHERE build_cnt>0;
 go

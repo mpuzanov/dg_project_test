@@ -258,7 +258,7 @@ AS
                                              WHEN u.precision = 0 THEN 4
                                              ELSE u.precision
                 END), 0)                           AS kol
-				 , 1 --cl.koef
+				 , p.koef
 				 , COALESCE(p.saldo, 0)
 				 , COALESCE(p.value, 0)
 				 , COALESCE(p.added, 0)
@@ -830,5 +830,8 @@ AS
 
 		RAISERROR (@strerror, 16, 1)
 	END CATCH
+go
+
+
 go
 

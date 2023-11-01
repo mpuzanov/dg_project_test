@@ -4,7 +4,7 @@ CREATE   PROCEDURE [dbo].[ka_add_P354_EE]
 	, @fin_id1 SMALLINT -- фин. период
 	, @value_source1 DECIMAL(15, 2) = 0 -- Объем по счётчику
 	, @doc1 VARCHAR(100) = NULL -- Документ
-	, @doc_no1 VARCHAR(15) = NULL -- номер акта
+	, @doc_no1 VARCHAR(15) = NULL -- номер акта -- '99999'-не делать расчеты кварплаты ,'88888'-не делать завершающий расчет квартплаты по дому
 	, @doc_date1 SMALLDATETIME = NULL -- дата акта
 	, @debug BIT = 0
 	, @addyes INT = 0 OUTPUT -- если 1 то разовые добавили
@@ -829,7 +829,7 @@ LABEL_SET_ZERO:
 
 LABEL_END:;
 
-	IF @doc_no1 <> '99999'
+	IF @doc_no1 NOT IN ('99999','88888')
 	BEGIN
 		IF @debug = 1
 			RAISERROR ('делаем перерасчёт по дому', 10, 1) WITH NOWAIT;

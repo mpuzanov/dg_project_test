@@ -3,7 +3,7 @@
 -- Create date: <Create Date,,>
 -- Description:	<Description,,>
 -- =============================================
-CREATE               PROCEDURE [dbo].[rep_ivc_pd]
+CREATE                 PROCEDURE [dbo].[rep_ivc_pd]
 (
 	  @fin_id SMALLINT = NULL
 	, @tip_id SMALLINT
@@ -17,6 +17,7 @@ AS
 /*
 rep_ivc_pd @fin_id=232, @tip_id=2,@build_id=6765, @sup_id=null, @occ=null	
 rep_ivc_pd @fin_id=232, @tip_id=1,@build_id=null, @sup_id=345, @occ=30040
+rep_ivc_pd @fin_id=232, @tip_id=1,@build_id=null, @sup_id=0, @occ=30040
 
 exec rep_ivc_pd @fin_id=212, @tip_id=28,@build_id=1026, @sup_id=323, @occ=680001639 --, @format='xml'	
 exec rep_ivc_pd @fin_id=212, @tip_id=28,@build_id=1026, @sup_id=345, @occ=680001639

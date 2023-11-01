@@ -635,6 +635,7 @@ BEGIN
 		CROSS APPLY (SELECT ph.debt
 			FROM Occ_history ph 
 			WHERE ph.occ = o.occ
+				AND ph.tip_id=o.tip_id  -- чтобы тип тоже совпадал
 				AND ph.fin_id = tt.fin_pred) as t2
 	WHERE status_id <> 'закр'
 		AND o.total_sq > 0
@@ -1215,6 +1216,7 @@ BEGIN
 		WHERE p1.service_id in ('вотв', 'вот2')
 			AND p1.Value<>0
 			AND p1.doc_no='888'
+			and p1.add_type=12
 		GROUP BY p1.fin_id, p1.occ
 		) AS t1
 		JOIN 
@@ -1229,6 +1231,7 @@ BEGIN
 				AND p2.fin_id = tt.fin_id
 		WHERE p2.service_id in ('хвод', 'хвс2', 'гвод','гвс2')
 			AND p2.doc_no='888'
+			and p2.add_type=12
 		GROUP BY p2.fin_id, p2.occ
 		) AS t2 ON t1.Occ=t2.Occ
 	JOIN Occupation_Types as ot ON 

@@ -223,6 +223,7 @@ AS
 		  , @soi_votv_fact BIT = 0 -- Расчет Водоотведение СОИ по факту (ХВС сои + ГВС сои)
 		  , @count_last_month_counter_value SMALLINT = 0 -- кол-во месяцев от последних показаний
 		  , @count_min_month_for_avg_counter SMALLINT = 0 -- минимальное кол-во показаний(месяцев) для расчета по среднему
+		  , @is_boiler BIT -- наличие бойлера в доме
 	-- *************************************************************
 	DECLARE @LiftFloor1 SMALLINT
 		  , @LiftYear1 SMALLINT
@@ -347,6 +348,7 @@ AS
 		 , @soi_votv_fact = CASE WHEN (ot.soi_votv_fact = 1) THEN ot.soi_votv_fact ELSE b.soi_votv_fact END -- если по типу фонда = истина то действует на все дома
 		 , @decimal_round = COALESCE(b.decimal_round, ot.decimal_round)
 		 , @count_min_month_for_avg_counter = ot.count_min_month_for_avg_counter
+		 , @is_boiler = coalesce(b.is_boiler,0)
 	FROM dbo.Occupations AS o 
 		JOIN dbo.Occupation_Types AS ot ON o.tip_id = ot.id
 		JOIN dbo.Flats AS f ON o.flat_id = f.id
@@ -2268,6 +2270,8 @@ AS
 	WHERE gv.fin_id=@fin_id1
 		and s.id='отоп'
 		and s.date_ras_start BETWEEN gv.heat_summer_start AND gv.heat_summer_end
+	
+	--IF @debug=1 SELECT @is_summer_period as is_summer_period, * FROM #services1 WHERE id='отоп'
 	--================================================================================
 
 	--IF @debug=1 SELECT * FROM #services1 
@@ -3759,7 +3763,14 @@ AS
 						IF @serv1 in ('одтж') -- ТЭдля ГВ на сод.о.и*
 						BEGIN
 							-- надо использовать норматив с услуги одгж(гвс одн)	
-							SELECT @norma_gkal_gvs = dbo.Fun_GetNormaSingle(@serv_unit1, (
+							--SELECT @norma_gkal_gvs = dbo.Fun_GetNormaSingle(@serv_unit1, (
+							--			SELECT TOP (1) mode_id
+							--			FROM #services1
+							--			WHERE id = 'одгж'  -- ГВ для сод. о.и.*
+							--				AND sup_id = @sup_id
+							--		), 0, @tip_id1, @fin_id1)
+
+							SELECT @NormaSingle = dbo.Fun_GetNormaSingle(@serv_unit1, (
 										SELECT TOP (1) mode_id
 										FROM #services1
 										WHERE id = 'одгж'  -- ГВ для сод. о.и.*
@@ -4710,7 +4721,7 @@ AS
 			ON pcb.fin_id = @fin_id1
 			AND pl.occ = pcb.occ
 			AND pl.service_id = pcb.service_id
-	WHERE pcb.tarif > 0
+	WHERE (pcb.tarif > 0) OR (pcb.kol<>0) -- 24.10.23  + OR (pcb.kol<>0)
 
 	--if @debug=1 SELECT * FROM @paym_list1 --WHERE service_id='гГВС'
 
@@ -4729,7 +4740,7 @@ AS
 			ON pcb.fin_id = @fin_id1
 			AND pl.occ = pcb.occ
 			AND pl.service_id = pcb.service_id
-	WHERE pcb.tarif = 0
+	WHERE (pcb.tarif=0) AND (pcb.kol=0) AND (pl.tarif>0) AND (pl.kol=0)  -- 24.10.23
 
 	--if @debug=1 SELECT * FROM @paym_list1 --WHERE service_id='гГВС'	
 	--******************************** Очищаем услуги по которым расчёт заблокирован
@@ -5159,14 +5170,17 @@ AS
 			 , pl.counter_metod_service_kol
 			 , pl.normaSingle
 			 , pl.sup_id
+			 , pl.serv_unit
+			 , pl.mode_id
 		FROM @paym_list1 pl
 		WHERE pl.counter_metod = 5
 			AND pl.counter_metod_service_kol <> ''
 			AND COALESCE(pl.metod, 0) <> 4 -- чтобы не был уже расчитан по ОПУ
 			AND pl.paym_blocked = 0
+			AND NOT (pl.service_id IN ('одтж') AND @is_boiler=1) -- ТЭдля ГВ на сод.о.и* там где есть бойлер считать по другому 25.10.23
 
 	OPEN cur;
-	FETCH NEXT FROM cur INTO @serv1, @counter_metod_service_kol, @NormaSingle, @sup_id
+	FETCH NEXT FROM cur INTO @serv1, @counter_metod_service_kol, @NormaSingle, @sup_id, @serv_unit1, @mode1
 
 	WHILE @@fetch_status = 0
 	BEGIN
@@ -5179,15 +5193,10 @@ AS
 								 ELSE 0
 							 END
 
-		--IF @norma_gkal_gvs > 0
-		--	SELECT
-		--		@NormaSingle = @norma_gkal_gvs
-		--IF @norma_gaz_gvs > 0
-		--	SELECT
-		--		@NormaSingle = @norma_gaz_gvs
-		--IF @norma_gaz_otop > 0
-		--	SELECT
-		--		@NormaSingle = @norma_gaz_otop
+		--IF @debug=1 SELECT @norma_gaz_otop as norma_gaz_otop, @norma_gaz_gvs as norma_gaz_gvs, @norma_gkal_gvs as norma_gkal_gvs, @norma_gkal as norma_gkal
+
+		IF @serv1='одтж' AND @norma_gkal_gvs=0
+			SELECT @NormaSingle=dbo.Fun_GetNormaSingle(@serv_unit1, @mode1, 0, @tip_id1, @fin_id1)
 
 		SELECT @kol = COALESCE(pl.kol, 0)
 			 , @metod = pl.metod
@@ -5202,6 +5211,7 @@ AS
 			AND pl.service_id = @counter_metod_service_kol
 			AND pl.sup_id = @sup_id
 
+		--IF @debug=1 SELECT @serv1,@kol AS kol,@NormaSingle as NormaSingle, @norma_gkal_gvs as norma_gkal_gvs
 		SELECT @kol = @kol * @NormaSingle -- * @koefDayRas  -- основная услуга уже расчитана с коэф. закомен. 22.08.22
 
 		IF @kol < 0
@@ -5214,7 +5224,7 @@ AS
 				AND ph.metod = 3
 			ORDER BY ph.fin_id DESC
 		END
-		--IF @debug=1 SELECT @serv1,@kol AS kol,@NormaSingle AS NormaSingle,@counter_metod_service_kol AS counter_metod_service_kol,@is_counter
+		--IF @debug=1 SELECT @serv1,@kol AS kol,@NormaSingle AS NormaSingle,@counter_metod_service_kol AS counter_metod_service_kol, @is_counter as is_counter
 
 		UPDATE pl
 		SET value = CASE
@@ -5236,7 +5246,7 @@ AS
 			AND pl.service_id = @serv1
 			AND pl.sup_id = @sup_id
 
-		FETCH NEXT FROM cur INTO @serv1, @counter_metod_service_kol, @NormaSingle, @sup_id
+		FETCH NEXT FROM cur INTO @serv1, @counter_metod_service_kol, @NormaSingle, @sup_id, @serv_unit1, @mode1
 	END
 
 	CLOSE cur;
@@ -5386,6 +5396,7 @@ LABEL_END_RASCHET:
 				ON pl.service_id = S.id
 		WHERE ((mode_id % 1000) = 0 OR (source_id % 1000) = 0)
 			AND pl.value > 0
+			AND pl.metod <> 4  -- 24.10.23
 			AND S.is_build = 0 -- услуга не общедомовая
 
 		--if @debug=1 select * from @paym_list1

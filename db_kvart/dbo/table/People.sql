@@ -75,6 +75,7 @@ create table People
     email           varchar(50) collate SQL_Latin1_General_CP1251_CI_AS,
     user_edit       smallint,
     is_owner_flat   bit,
+    date_del_fact   smalldatetime,
     constraint CK_PEOPLE_Birthdate
         check ([Birthdate] <= [DateReg])
 )
@@ -255,5 +256,9 @@ go
 
 exec sp_addextendedproperty 'MS_Description', N'собственник помещения', 'SCHEMA', 'dbo', 'TABLE', 'People', 'COLUMN',
      'is_owner_flat'
+go
+
+exec sp_addextendedproperty 'MS_Description', N'реальная дата выписки гражданина', 'SCHEMA', 'dbo', 'TABLE', 'People',
+     'COLUMN', 'date_del_fact'
 go
 

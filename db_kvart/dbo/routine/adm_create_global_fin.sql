@@ -152,7 +152,8 @@ AS
 			,settings_json
 			,settings_developer
 			,heat_summer_start
-			,heat_summer_end)
+			,heat_summer_end
+			,counter_last_metod)
 			SELECT
 				@fin_new AS fin_id
 				,@start_date2 AS start_date
@@ -217,6 +218,7 @@ AS
 				,settings_developer
 				,heat_summer_start
 				,heat_summer_end
+				,counter_last_metod
 			FROM dbo.Global_values
 			WHERE fin_id = @fin_current
 

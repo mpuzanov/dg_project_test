@@ -2,7 +2,8 @@ CREATE   PROCEDURE [dbo].[rep_people_period_date]
 /*
  Выдаем свод зарегистрированных людей за период дат
  rep_people_period_date '20141125','20141130', 27, null,0
- rep_people_period_date '20150805','20150930', 28, null,0
+exec rep_people_period_date @date1='20231001', @date2='20231030', @tip_id=204, @build_id1=null, @only_izm=0
+exec rep_people_period_date @date1='20231001', @date2='20231030', @tip_id=204, @build_id1=8562, @only_izm=1
 */
 (
 	@date1		SMALLDATETIME
@@ -53,8 +54,12 @@ AS
 						PS.id = P.Status2_id
 					WHERE P.occ = voa.occ
 						AND PS.is_kolpeople = 1
-						AND COALESCE(P.DateReg, @DateRegNull) < @date1
-						AND (P.DateDel IS NULL OR P.DateDel >= @date1)
+						AND (COALESCE(P.DateReg, @DateRegNull) < @date1)						
+						AND (COALESCE(p.date_create, @DateRegNull) < @date1)
+						AND (P.DateDel IS NULL 
+							OR --P.DateDel >= @date1
+							(P.DateDel is not null AND P.DateEdit<@date2)
+							)
 				) AS total_people_fin_1
 			   ,(SELECT
 						COUNT(P.id)
@@ -63,7 +68,12 @@ AS
 						PS.id = P.Status2_id
 					WHERE occ = voa.occ
 						AND PS.is_kolpeople = 1
-						AND DateReg BETWEEN @date1 AND @date2
+						AND (
+								(DateReg BETWEEN @date1 AND @date2)
+								OR
+								(P.date_create BETWEEN @date1 AND @date2)
+							)
+
 				) AS people_plus
 			   ,(SELECT
 						COUNT(P.id)
@@ -72,7 +82,11 @@ AS
 						ON PS.id = P.Status2_id
 					WHERE P.occ = voa.occ
 						AND PS.is_kolpeople = 1
-						AND P.DateDel BETWEEN @date1 AND @date2
+						AND (
+							(P.DateDel BETWEEN @date1 AND @date2)
+							OR
+							(P.DateDel is not null AND P.DateEdit BETWEEN @date1 AND @date2)
+							)
 				) AS people_minus
 			   ,B.nom_dom_sort
 			   ,voa.nom_kvr_sort

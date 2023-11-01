@@ -34,6 +34,7 @@ AS
 		   ,@end_date	 SMALLDATETIME
 		   ,@DateRegNull SMALLDATETIME = '19000101'
 		   ,@finCurrent	 SMALLINT
+		   ,@finPred	 SMALLINT
 
 	SELECT
 		@finCurrent = dbo.Fun_GetFinCurrent(@tip_id, @build_id1, NULL, NULL)
@@ -63,6 +64,8 @@ AS
 		WHERE v.occ=@occ1
     END
     
+	SELECT @finPred=@fin_id1-1
+
 	--PRINT @DateRegNull		
 	--PRINT @start_date
 	--PRINT @fin_id2	
@@ -82,25 +85,53 @@ AS
 		   ,voa.occ
 		   ,voa.total_sq
 		   ,voa.living_sq
+		 --  ,(SELECT
+			--		COUNT(P.id)
+			--	FROM dbo.People AS P 
+			--	JOIN dbo.Person_statuses PS ON 
+			--		PS.id = P.Status2_id
+			--	WHERE P.occ = voa.occ
+			--		AND PS.is_kolpeople = 1
+			--		AND COALESCE(P.DateReg, @DateRegNull) < @start_date
+			--		AND (P.DateDel IS NULL	OR P.DateDel >= @start_date)
+			--) AS total_people_fin_1
 		   ,(SELECT
 					COUNT(P.id)
 				FROM dbo.People AS P 
 				JOIN dbo.Person_statuses PS ON 
 					PS.id = P.Status2_id
 				WHERE P.occ = voa.occ
-					AND PS.is_kolpeople = 1
-					AND COALESCE(P.DateReg, @DateRegNull) < @start_date
-					AND (P.DateDel IS NULL	OR P.DateDel >= @start_date)
+					AND PS.is_kolpeople = 1					
+					AND EXISTS(SELECT 1 FROM dbo.People_history as ph WHERE ph.fin_id=@finPred and ph.owner_id=p.id)
 			) AS total_people_fin_1
-		   ,(SELECT
+		 --  ,(SELECT
+			--		COUNT(P.id)
+			--	FROM dbo.People AS P 
+			--	JOIN dbo.Person_statuses PS ON 
+			--		PS.id = P.Status2_id
+			--	WHERE occ = voa.occ
+			--		AND PS.is_kolpeople = 1
+			--		AND DateReg BETWEEN @start_date AND @end_date
+			--) AS people_plus
+			,(SELECT
 					COUNT(P.id)
 				FROM dbo.People AS P 
 				JOIN dbo.Person_statuses PS ON 
 					PS.id = P.Status2_id
-				WHERE occ = voa.occ
+				WHERE p.occ = voa.occ
 					AND PS.is_kolpeople = 1
-					AND DateReg BETWEEN @start_date AND @end_date
+					AND p.DateDel is null
+					AND NOT EXISTS(SELECT 1 FROM dbo.People_history as ph WHERE ph.fin_id=@finPred and ph.owner_id=p.id)
 			) AS people_plus
+		 --  ,(SELECT
+			--		COUNT(P.id)
+			--	FROM dbo.People AS P 
+			--	JOIN dbo.Person_statuses PS ON 
+			--		PS.id = P.Status2_id
+			--	WHERE P.occ = voa.occ
+			--		AND PS.is_kolpeople = 1
+			--		AND P.DateDel BETWEEN @start_date AND @end_date
+			--) AS people_minus
 		   ,(SELECT
 					COUNT(P.id)
 				FROM dbo.People AS P 
@@ -108,7 +139,12 @@ AS
 					PS.id = P.Status2_id
 				WHERE P.occ = voa.occ
 					AND PS.is_kolpeople = 1
-					AND P.DateDel BETWEEN @start_date AND @end_date
+					AND (
+						(P.DateDel BETWEEN @start_date AND @end_date)
+						OR
+						(P.DateDel is not null AND P.DateEdit BETWEEN @start_date AND @end_date)
+						)
+					--AND EXISTS(SELECT 1 FROM dbo.People_history as ph WHERE ph.fin_id=@finPred and ph.owner_id=p.id)
 			) AS people_minus
 		   ,B.nom_dom_sort
 		   ,voa.nom_kvr_sort
